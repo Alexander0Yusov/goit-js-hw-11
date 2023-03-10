@@ -1,4 +1,4 @@
-const axios = require('axios');
+const axios = require('axios').default;
 import SimpleLightbox from 'simplelightbox';
 // Додатковий імпорт стилів
 import 'simplelightbox/dist/simple-lightbox.min.css';
@@ -16,25 +16,19 @@ rfs.btnMore.addEventListener('click', btnMoreClickHandler);
 rfs.inputEl.addEventListener('input', onInputElHandler);
 rfs.btnFind.addEventListener('click', btnFindClickHandler);
 
-const options = {
+const optionsLightbox = {
   closeText: '×',
   nav: true,
   navText: ['←', '→'],
 };
-const lightbox = new SimpleLightbox('.gallery a', options);
+const lightbox = new SimpleLightbox('.gallery a', optionsLightbox);
 lightbox.on('show.simplelightbox');
 
 let page = 1;
-let per_page = 20;
+let per_page = 10;
 let inputValue = '';
-let url = '';
+let url = 'https://pixabay.com/api/';
 let allPages = 0;
-
-function updateUrlPage(page) {
-  url = `https://pixabay.com/api/?key=${myKey}&q=${inputValue}&image_type=photo&orientation=horizontal&safesearch=true&page=${page}&per_page=${per_page}`;
-}
-
-function updateUrlinsertValue() {}
 
 function onInputElHandler() {
   inputValue = rfs.inputEl.value;
@@ -47,13 +41,11 @@ async function btnFindClickHandler(e) {
   // inputValue = 'cfrtyhbnj';
 
   await clearCardset();
-  await updateUrlPage(page);
   await getData();
 }
 
 function btnMoreClickHandler() {
   page++;
-  updateUrlPage(page);
   getData();
 }
 
@@ -67,7 +59,7 @@ function createCardHTML(item) {
     comments,
     downloads,
   } = item;
-  const markup = `<div class="photo-card">
+  const markup = `<div data-id="${page}" class="photo-card">
   <a href="${largeImageURL}">
   <img src="${webformatURL}" alt="${(largeImageURL, tags)}" loading="lazy" />
 
@@ -92,12 +84,11 @@ function createCardHTML(item) {
 }
 
 function galleryInnerHTML(array) {
-  array.length !== 0
-    ? rfs.cardSet.insertAdjacentHTML(
-        'beforeend',
-        array.map(createCardHTML).join('')
-      )
-    : new Error('Пустенько');
+  array.length !== 0 &&
+    rfs.cardSet.insertAdjacentHTML(
+      'beforeend',
+      array.map(createCardHTML).join('')
+    );
 }
 
 function clearCardset() {
@@ -107,14 +98,24 @@ function clearCardset() {
 async function getData() {
   hideBtn();
 
-  await fetch(url)
-    .then(res => res.json())
-    .then(({ hits, total, totalHits }) => {
-      console.log(total, totalHits);
+  await axios
+    .get(url, {
+      params: {
+        key: myKey,
+        q: inputValue,
+        image_type: 'photo',
+        per_page: per_page,
+        page: page,
+        safesearch: true,
+        orientation: 'horizontal',
+      },
+    })
+    .then(res => res.data)
+    .then(({ hits, total }) => {
       if (total) {
         galleryInnerHTML(hits);
         updatePageStatus(total);
-        setTimeout(comparePageNumber, 700);
+        setTimeout(comparePageNumber, 1500);
         page === 1 &&
           Notiflix.Notify.success(`Hooray! We found ${total} images.`);
       } else {
@@ -122,10 +123,9 @@ async function getData() {
           'Sorry, there are no images matching your search query. Please try again.'
         );
       }
-
-      return total;
     })
-    .catch(er => console.log(er.message()));
+    .then(setTimeout(autoScreen, 1800))
+    .catch(er => console.log(er.message));
   await lightbox.refresh();
 }
 
@@ -148,16 +148,10 @@ function showBtn() {
   rfs.btnMore.style.display = 'block';
   console.log('showing');
 }
+function autoScreen() {
+  document
+    .querySelector(`[data-id="${page}"]`)
+    .scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
 
 hideBtn();
-
-// const { height: cardHeight } = document
-//   .querySelector('.gallery')
-//   .firstElementChild.getBoundingClientRect();
-
-// window.scrollBy({
-//   top: cardHeight * 2,
-//   behavior: 'smooth',
-// });
-
-console.log('tttttttttt');
